@@ -3,23 +3,32 @@ A small bash script to quickly clone repositories matching a regex from a specif
 
 ## Dependencies
 + jq: <https://stedolan.github.io/jq/>
++ git: <https://git-scm.com/>
 
 ## How to use
-+ To clone all repositories from a specific user:
-
-  ```
-  github-clone https://api.github.com/users/crispydrone/repos <target-dir> <regex>
-  ```
-
-+ To clone all repositories from a specific organization:
-
-  ```
-  github-clone https://api.github.com/orgs/<organization-name>/repos <target-dir> <regex>
-  ```
++ You can specify a github api url for: 
+  + A user: <https://api.github.com/users/crispydrone/repos>
+  + An organization: <https://api.github.com/orgs/microsoft/repos>
 
 ## Examples
-1. Clone all my repositories having "notes" in the repository name into a NOTES directory
++ To clone all repositories from a specific user into a target directory:
+
+  ```
+  github-clone.sh https://api.github.com/users/crispydrone/repos <target-dir>
+  ```
+
++ To clone all repositories from a specific organization with current directory as root:
+
+  ```
+  github-clone.sh https://api.github.com/orgs/<organization-name>/repos
+  ```
+
++ Clone all repositories having "notes" (case insensitive) in the repository name into a NOTES directory
 
    ```
-   github-clone https://api.github.com/users/crispydrone/repos NOTES notes
+   github-clone.sh https://api.github.com/users/crispydrone/repos NOTES notes
    ```
+
+## In the pipeline
+1. Support for pagination
+2. Support for command line flag `-t <type>` (user or org) so it's not necessary to type the raw url eveyr time.

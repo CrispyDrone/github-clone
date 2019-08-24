@@ -9,9 +9,12 @@ url="${1}"
 directory="${2:-.}"
 regex="${3:-'*'}"
 
-jqfilter=$(echo '.[] | select(.clone_url|test("regex", "i")) | .clone_url' | sed 's/regex/'"${regex}"'/')
+jqfilter=$(echo ".[] | select(.clone_url|test(\"regex\";\"i\")) | .clone_url" | sed 's/regex/'"${regex}"'/')
+echo "${jqfilter}"
+
 repos=$(curl -u "${UserName}:${Password}" "${url}")
 repo_urls=$(echo "${repos}" | jq-win64.exe "${jqfilter}")
+echo "${repo_urls}"
 
 if [[ ! -d "${directory}" ]]
 then
