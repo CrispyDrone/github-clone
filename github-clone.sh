@@ -1,23 +1,26 @@
 # $1 = url, $2 = directory, $3 = regex...
 set -e
 
-read -p "Username: " U
-read -s -p "Password: " P
+read -p "Username: " UserName
+read -s -p "Password: " Password
 echo ''
 
-jqfilter=$(echo '.[] | select(.clone_url|test("regex")) | .clone_url' | sed 's/regex/'"${3}"'/')
-# echo "${jqfilter}"
-repos=$(curl -u "${U}:${P}" "${1}")
+url="${1}"
+directory="${2:-.}"
+regex="${3:-'*'}"
+
+jqfilter=$(echo '.[] | select(.clone_url|test("regex", "i")) | .clone_url' | sed 's/regex/'"${regex}"'/')
+repos=$(curl -u "${UserName}:${Password}" "${url}")
 repo_urls=$(echo "${repos}" | jq-win64.exe "${jqfilter}")
 
-if [[ ! -d "${2}" ]]
+if [[ ! -d "${directory}" ]]
 then
-	echo "creating directory $2"
-	mkdir -p "${2}"
+	echo "creating directory $directory"
+	mkdir -p "${directory}"
 fi
 
-echo "entering directory $2"
-cd "${2}"
+echo "entering directory $directory"
+cd "${directory}"
 
 while read -r repo_url; 
 do
