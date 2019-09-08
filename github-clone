@@ -1,6 +1,8 @@
+#!/usr/bin/env bash
+
 # $1 = url, $2 = directory, $3 = regex...
 # exit script on error
-set -e
+# set -e
 
 # constants
 user_or_org_url_regex='^https:\/\/api\.github\.com\/(users|orgs)\/[^\/]*$'
@@ -9,6 +11,7 @@ link_header_next_url_regex='.*<\(.*\)>;\s*rel="next".*'
 last_page_number_regex='.*rel="next",\s*<[^?]*.*page=\(.*\)>;\s*rel="last"'
 headers_file='headers.txt'
 link_header='Link:'
+get_repository_name_regex='^"\?[^\/]\+\/\/\([^\/]\+\/\)\+\([^\/]\+\)\.git"\?$'
 
 # variables
 user_or_org_url="${1}"
@@ -22,7 +25,7 @@ total_number_of_pages=1
 # verify url
 if [[ ! ${user_or_org_url} =~ ${user_or_org_url_regex} ]]
 then
-	echo "Url is not a valid user or organization url. Url should be of the format https://api.github.com/users/<user> or https://api.github.com/orgs/<org>"
+	echo "Url is not a valid user or organization url. Url should be of the format https://api.github.com/users/<user> or https://api.github.com/orgs/<org>" >&2
 	exit 1;
 fi
 
@@ -36,24 +39,29 @@ read -s -p "Password: " Password
 echo ''
 
 # while more than 1 page remaining, treat repos, execute request again with 'rel="next"' url until no more next i.e. final url
-while [[ ${current_page} -le ${total_number_of_pages} ]] && [[ ! ${user_or_org_repos_url} == '' ]]
+while [[ ${current_page} -lt ${total_number_of_pages} ]] && [[ ! ${user_or_org_repos_url} == '' ]]
 do
 	current_page=$((current_page + 1))
 
 	# fetch repos
 	paginated_repos=$(curl -u "${UserName}:${Password}" --progress-bar --dump-header "${headers_file}" "${user_or_org_repos_url}")
+
 	link_header_response_value=$(grep "${link_header}" "${headers_file}")
-	user_or_org_repos_url=$(grep "${link_header}" "${headers_file}" | sed "/${link_header_next_url_regex}/!d;s//\1/")
+	if [[ $? -eq 0 ]]
+	then
+		user_or_org_repos_url=$(grep "${link_header}" "${headers_file}" | sed "/${link_header_next_url_regex}/!d;s//\1/")
+
+		if [[ ${current_page} -eq 1 ]]
+		then
+			total_number_of_pages=$(grep "${link_header}" "${headers_file}" | sed 's/'"${last_page_number_regex}"'/\1/')
+		fi
+	fi
+
+	echo "Total number of pages to treat: ${total_number_of_pages}"
 
 	# verify response
-	echo "${paginated_repos}"
-	echo "${user_or_org_repos_url}"
-
-	if [[ ${current_page} -eq 1 ]]
-	then
-		total_number_of_pages=$(grep "${link_header}" "${headers_file}" | sed 's/'"${last_page_number_regex}"'/\1/')
-		echo "Total number of pages: ${total_number_of_pages:-1}"
-	fi
+	#echo "${paginated_repos}"
+	#echo "${user_or_org_repos_url}"
 
 	# execute filter
 	repo_urls=$(echo "${paginated_repos}" | jq-win64.exe "${jq_filter}")
@@ -82,6 +90,15 @@ do
 	while read -r repo_url;
 	do
 		echo "processing repo ${repo_url}"
+		repo_name=$(echo "${repo_url}" | sed 's/'"${get_repository_name_regex}"'/\2/')
+		echo $repo_name
+
+		if [[ -d $repo_name ]]
+		then
+			echo "directory $repo_name already exists, skipping this repository."
+			continue;
+		fi
+
 		git clone $(echo "${repo_url}" | sed 's/"\(.*\)"/\1/')
 		echo "finished cloning repo ${repo_url}"
 	done <<< "${repo_urls}"
