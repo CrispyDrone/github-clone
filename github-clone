@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# $1 = url, $2 = directory, $3 = regex...
+# $1 = url, $2 = directory, $3 = regex, $4 = with authentication
 # exit script on error
 # set -e
 
@@ -17,10 +17,11 @@ get_repository_name_regex='^"\?[^\/]\+\/\/\([^\/]\+\/\)\+\([^\/]\+\)\.git"\?$'
 user_or_org_url="${1}"
 user_or_org_repos_url="${1}/repos"
 directory="${2:-.}"
-regex="${3:-'*'}"
+regex="${3:-.*}"
 jq_filter=$(echo ".[] | select(.clone_url|test(\"regex\";\"i\")) | .clone_url" | sed 's/regex/'"${regex}"'/')
 current_page=0
 total_number_of_pages=1
+with_authentication="${4:-false}"
 
 # verify url
 if [[ ! ${user_or_org_url} =~ ${user_or_org_url_regex} ]]
@@ -29,14 +30,29 @@ then
 	exit 1;
 fi
 
-echo "${user_or_org_url}"
-echo "${user_or_org_repos_url}"
-echo "${jq_filter}"
+#echo "${user_or_org_url}"
+#echo "${user_or_org_repos_url}"
+#echo "${jq_filter}"
 
-# request user name and password for github request
-read -p "Username: " UserName
-read -s -p "Password: " Password
-echo ''
+if [[ $with_authentication = true ]]
+then
+	# request user name and password for github request
+	read -p "Username: " UserName
+	read -s -p "Password: " Password
+	echo ''
+fi
+
+if [[ ! -d "${directory}" ]]
+then
+	echo "creating directory $directory"
+	mkdir -p "${directory}"
+fi
+
+if [[ ! $PWD == $directory ]]
+then
+	echo "entering directory $directory"
+	cd "${directory}"
+fi
 
 # while more than 1 page remaining, treat repos, execute request again with 'rel="next"' url until no more next i.e. final url
 while [[ ${current_page} -lt ${total_number_of_pages} ]] && [[ ! ${user_or_org_repos_url} == '' ]]
@@ -44,7 +60,12 @@ do
 	current_page=$((current_page + 1))
 
 	# fetch repos
-	paginated_repos=$(curl -u "${UserName}:${Password}" --progress-bar --dump-header "${headers_file}" "${user_or_org_repos_url}")
+	if [ -u "${UserName}" ]
+	then
+		paginated_repos=$(curl -u "${UserName}:${Password}" --progress-bar --dump-header "${headers_file}" "${user_or_org_repos_url}")
+	else
+		paginated_repos=$(curl --progress-bar --dump-header "${headers_file}" "${user_or_org_repos_url}")
+	fi
 
 	link_header_response_value=$(grep "${link_header}" "${headers_file}")
 	if [[ $? -eq 0 ]]
@@ -73,25 +94,13 @@ do
 	fi
 
 	# verify
-	echo "${repo_urls}"
-
-	if [[ ! -d "${directory}" ]]
-	then
-		echo "creating directory $directory"
-		mkdir -p "${directory}"
-	fi
-
-	if [[ ! $PWD == $directory ]]
-	then
-		echo "entering directory $directory"
-		cd "${directory}"
-	fi
+	# echo "${repo_urls}"
 
 	while read -r repo_url;
 	do
 		echo "processing repo ${repo_url}"
 		repo_name=$(echo "${repo_url}" | sed 's/'"${get_repository_name_regex}"'/\2/')
-		echo $repo_name
+		# echo $repo_name
 
 		if [[ -d $repo_name ]]
 		then
@@ -103,6 +112,12 @@ do
 		echo "finished cloning repo ${repo_url}"
 	done <<< "${repo_urls}"
 done
+
+if [ -f "${headers_file}" ]
+then
+	echo 'cleaning up...'
+	rm "${headers_file}"
+fi
 
 echo "finished cloning all repos"
 exit 0

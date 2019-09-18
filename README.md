@@ -10,7 +10,7 @@ A small bash script to quickly clone repositories matching a regex from a specif
   + A user: <https://api.github.com/users/crispydrone/repos>
   + An organization: <https://api.github.com/orgs/microsoft/repos>
 
-The script will ask for credentials but these are not obligatory. As an anonymous user you are limited to 60 requests per hour, find more information about the rate limit here: <https://developer.github.com/v3/#rate-limiting>.
+You can specify whether to use credentials or not, as an anonymous user you are limited to 60 requests per hour, find more information about the rate limit here: <https://developer.github.com/v3/#rate-limiting>.
 
 ## Examples
 + To clone all repositories from a specific user into a target directory:
@@ -31,15 +31,24 @@ The script will ask for credentials but these are not obligatory. As an anonymou
    github-clone https://api.github.com/users/crispydrone NOTES notes
    ```
 
++ Clone all repositories into the current directory using authentication.
+
+  ```
+  github-clone https://api.github.com/users/crispydrone . '.*' true
+  ```
+
 ## In the pipeline
 1. Improve command line experience:
-   + Make the soliciting for credentials optional
    + Support for command line flag `-t <type>` (user or org) so it's not necessary to type a raw url every time.
 2. Support for parallel processing
 3. Cross platform support
 4. Skip existing repositories in a smarter way, based on remote urls (in case repositories are not all on the same depth in the root directory).
 
 ## Change history
++ v0.30:
+  + Fixed default regex, it returned no matches because it was interpreted literally.
+  + Added additional boolean argument that states whether to use authentication or not. The default is false.
+  + Cleans up headers.txt file.
 + v0.21:
   + Removed "exit on error", and added support to skip repositories that already have been cloned with the default directory name.
 + v0.20:
